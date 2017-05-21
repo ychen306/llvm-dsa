@@ -153,7 +153,7 @@ static       DSNode &dereference (      DSNode *N) { return *N; }
 
 template <> struct GraphTraits<DSGraph*> {
   typedef DSNode NodeType;
-  typedef DSNode *NodeRef;
+  typedef DSNode &NodeRef;
   typedef DSNode::iterator ChildIteratorType;
 
   typedef std::pointer_to_unary_function<DSNode *, DSNode&> DerefFun;
@@ -173,7 +173,7 @@ template <> struct GraphTraits<DSGraph*> {
 
 template <> struct GraphTraits<const DSGraph*> {
   typedef const DSNode NodeType;
-  typedef const DSNode *NodeRef;
+  typedef const DSNode &NodeRef;
   typedef DSNode::const_iterator ChildIteratorType;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes in the graph

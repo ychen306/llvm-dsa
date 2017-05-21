@@ -1,10 +1,10 @@
 //===- TypeSafety.cpp - Find type-safe pointers --------------------------- --//
-// 
+//
 //                     The LLVM Compiler Infrastructure
 //
 // This file was developed by the LLVM research group and is distributed under
 // the University of Illinois Open Source License. See LICENSE.TXT for details.
-// 
+//
 //===----------------------------------------------------------------------===//
 //
 // This pass implements code that determines if memory objects are used in
@@ -17,64 +17,47 @@
 
 #include "dsa/TypeSafety.h"
 
-#include "llvm/IR/Module.h"
+#include "dsa/InitializeDSAPasses.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Module.h"
+#include "llvm/PassSupport.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/PassSupport.h"
-#include "dsa/InitializeDSAPasses.h"
 
 using namespace llvm;
 
-void llvm::initializeTypeSafetyEQTD(PassRegistry &Registry) {
-//  const char *Name = "Find type-safe pointers (EQTD)";
-//  PassInfo *PI = new PassInfo(Name, "Find type-safe pointers (EQTD)",
-//      &dsa::TypeSafety<EQTDDataStructures>::ID,
-//      nullptr, false, false);
-//  Registry.registerPass(*PI, true);
-}
-
-void llvm::initializeTypeSafetyTD(PassRegistry &Registry) {
-//  const char *Name = "Find type-safe pointers (TD)";
-//  PassInfo *PI = new PassInfo(Name, "Find type-safe pointers (TD)",
-//      &dsa::TypeSafety<EQTDDataStructures>::ID,
-//      nullptr, false, false);
-//  Registry.registerPass(*PI, true);
-}
-
-static RegisterPass<dsa::TypeSafety<EQTDDataStructures> >
-X ("typesafety-eqtd", "Find type-safe pointers");
-static RegisterPass<dsa::TypeSafety<TDDataStructures> >
-Y ("typesafety-td", "Find type-safe pointers");
+// static RegisterPass<dsa::TypeSafety<EQTDDataStructures> >
+// X ("typesafety-eqtd", "Find type-safe pointers");
+// static RegisterPass<dsa::TypeSafety<TDDataStructures> >
+// Y ("typesafety-td", "Find type-safe pointers");
 
 // Pass Statistics
 namespace {
-  //STATISTIC (TypeSafeNodes, "Type-safe DSNodes");
+// STATISTIC (TypeSafeNodes, "Type-safe DSNodes");
 }
 extern cl::opt<bool> TypeInferenceOptimize;
 
 namespace dsa {
 
-template<typename dsa>
-char TypeSafety<dsa>::ID = 0;
+template <typename dsa> char TypeSafety<dsa>::ID = 0;
 
 // Method: getDSNodeHandle()
 //
 // Description:
-//  This method looks up the DSNodeHandle for a given LLVM globalvalue. 
+//  This method looks up the DSNodeHandle for a given LLVM globalvalue.
 //  The value is looked up in the globals graph
 //
 // Return value:
-//  A DSNodeHandle for the value is returned.  This DSNodeHandle is from 
+//  A DSNodeHandle for the value is returned.  This DSNodeHandle is from
 //  the GlobalsGraph.  Note that the DSNodeHandle may represent a NULL DSNode.
 //
-template<class dsa> DSNodeHandle
-TypeSafety<dsa>::getDSNodeHandle(const GlobalValue *V) {
+template <class dsa>
+DSNodeHandle TypeSafety<dsa>::getDSNodeHandle(const GlobalValue *V) {
   DSNodeHandle DSH;
-  const DSGraph * GlobalsGraph = dsaPass->getGlobalsGraph ();
-  if(GlobalsGraph->hasNodeForValue(V)) {
+  const DSGraph *GlobalsGraph = dsaPass->getGlobalsGraph();
+  if (GlobalsGraph->hasNodeForValue(V)) {
     DSH = GlobalsGraph->getNodeForValue(V);
   }
   //
@@ -92,8 +75,8 @@ TypeSafety<dsa>::getDSNodeHandle(const GlobalValue *V) {
       //
       // We have to dig into the globalEC of the DSGraph to find the DSNode.
       //
-      const GlobalValue * GV = dyn_cast<GlobalValue>(V);
-      const GlobalValue * Leader;
+      const GlobalValue *GV = dyn_cast<GlobalValue>(V);
+      const GlobalValue *Leader;
       Leader = GlobalsGraph->getGlobalECs().getLeaderValue(GV);
       DSH = GlobalsGraph->getNodeForValue(Leader);
     }
@@ -113,20 +96,21 @@ TypeSafety<dsa>::getDSNodeHandle(const GlobalValue *V) {
 //  be in the function's DSGraph or from the GlobalsGraph.  Note that the
 //  DSNodeHandle may represent a NULL DSNode.
 //
-template<class dsa> DSNodeHandle
-TypeSafety<dsa>::getDSNodeHandle (const Value * V, const Function * F) {
+template <class dsa>
+DSNodeHandle TypeSafety<dsa>::getDSNodeHandle(const Value *V,
+                                              const Function *F) {
   //
   // Ensure that the function has a DSGraph
   //
-  assert (dsaPass->hasDSGraph(*F) && "No DSGraph for function!\n");
+  assert(dsaPass->hasDSGraph(*F) && "No DSGraph for function!\n");
 
   //
   // Lookup the DSNode for the value in the function's DSGraph.
   //
-  const DSGraph * TDG = dsaPass->getDSGraph(*F);
+  const DSGraph *TDG = dsaPass->getDSGraph(*F);
 
   DSNodeHandle DSH;
-  if(TDG->hasNodeForValue(V))
+  if (TDG->hasNodeForValue(V))
     DSH = TDG->getNodeForValue(V);
 
   //
@@ -146,12 +130,12 @@ TypeSafety<dsa>::getDSNodeHandle (const Value * V, const Function * F) {
   return DSH;
 }
 
-template<class dsa> bool
-TypeSafety<dsa>::isTypeSafe (const Value * V, const Function * F) {
+template <class dsa>
+bool TypeSafety<dsa>::isTypeSafe(const Value *V, const Function *F) {
   //
   // Get the DSNode for the specified value.
   //
-  DSNodeHandle DH = getDSNodeHandle (V, F);
+  DSNodeHandle DH = getDSNodeHandle(V, F);
 
   //
   // If there is no DSNode, claim that it is not type safe.
@@ -163,14 +147,13 @@ TypeSafety<dsa>::isTypeSafe (const Value * V, const Function * F) {
   //
   // See if the DSNode is one that we think is type-safe.
   //
-  if (TypeSafeNodes.count (DH.getNode()))
+  if (TypeSafeNodes.count(DH.getNode()))
     return true;
 
   return false;
 }
 
-template<class dsa> bool
-TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
+template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
   //
   // Get the DSNode for the specified value.
   //
@@ -185,7 +168,7 @@ TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
   //
   // See if the DSNode is one that we think is type-safe.
   //
-  if (TypeSafeNodes.count (DH.getNode()))
+  if (TypeSafeNodes.count(DH.getNode()))
     return true;
 
   return false;
@@ -201,8 +184,7 @@ TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
 //  o) We take advantage of the fact that a std::map keeps its elements sorted
 //     by key.
 //
-template<class dsa> bool
-TypeSafety<dsa>::typeFieldsOverlap (const DSNode * N) {
+template <class dsa> bool TypeSafety<dsa>::typeFieldsOverlap(const DSNode *N) {
   //
   // There are no overlapping fields if the DSNode has no fields.
   //
@@ -213,14 +195,14 @@ TypeSafety<dsa>::typeFieldsOverlap (const DSNode * N) {
   // Iterate through the DSNode to see if the previous fields overlaps with the
   // current field.
   //
-  DSNode::const_type_iterator tn =  N->type_begin();
+  DSNode::const_type_iterator tn = N->type_begin();
   bool overlaps = false;
   while (!overlaps) {
     //
     // Get the information about the current field.
     //
     unsigned offset = tn->first;
-    SuperSet<Type*>::setPtr TypeSet = tn->second;
+    SuperSet<Type *>::setPtr TypeSet = tn->second;
 
     //
     // If this is the last field, then we are done searching.
@@ -239,24 +221,26 @@ TypeSafety<dsa>::typeFieldsOverlap (const DSNode * N) {
     // next field.
     //
     if (TypeSet) {
-      for (svset<Type*>::const_iterator ni = TypeSet->begin(),
-           ne = TypeSet->end(); ni != ne; ++ni) {
-        unsigned field_length = TD->getTypeStoreSize (*ni);
+      for (svset<Type *>::const_iterator ni = TypeSet->begin(),
+                                         ne = TypeSet->end();
+           ni != ne; ++ni) {
+        unsigned field_length = TD->getTypeStoreSize(*ni);
         if ((offset + field_length) > next_offset) {
           overlaps = true;
-          if(TypeInferenceOptimize) {
-            if(const ArrayType *AT = dyn_cast<ArrayType>(*ni)) {
+          if (TypeInferenceOptimize) {
+            if (const ArrayType *AT = dyn_cast<ArrayType>(*ni)) {
               Type *ElemTy = AT->getElementType();
-              while(ArrayType *AT1 = dyn_cast<ArrayType>(ElemTy))
+              while (ArrayType *AT1 = dyn_cast<ArrayType>(ElemTy))
                 ElemTy = AT1->getElementType();
-              if(next_offset < (TD->getTypeStoreSize(ElemTy) + offset)) {
+              if (next_offset < (TD->getTypeStoreSize(ElemTy) + offset)) {
                 assert(isa<StructType>(ElemTy) && "Array Not of Struct Type??");
                 overlaps = false;
               }
             }
           }
-          if(overlaps) {
-            DEBUG(errs() << " Found overlap at " << offset << " with " << next_offset << "\n");
+          if (overlaps) {
+            DEBUG(errs() << " Found overlap at " << offset << " with "
+                         << next_offset << "\n");
             break;
           }
         }
@@ -284,8 +268,7 @@ TypeSafety<dsa>::typeFieldsOverlap (const DSNode * N) {
 //  true  - The memory object is used in a type-safe fasion.
 //  false - The memory object *may* be used in a type-unsafe fasion.
 //
-template<class dsa> bool
-TypeSafety<dsa>::isTypeSafe (const DSNode * N) {
+template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const DSNode *N) {
   //
   // If the DSNode is completely folded, then we know for sure that it is not
   // type-safe.
@@ -314,7 +297,7 @@ TypeSafety<dsa>::isTypeSafe (const DSNode * N) {
   // Scan through all of the fields within the DSNode and see if any overlap.
   // If they do, then the DSNode is not type-safe.
   //
-  if (typeFieldsOverlap (N))
+  if (typeFieldsOverlap(N))
     return false;
 
   //
@@ -337,37 +320,66 @@ TypeSafety<dsa>::isTypeSafe (const DSNode * N) {
 //  Class level data structures are updated to record which DSNodes are
 //  type-safe.
 //
-template<class dsa> void
-TypeSafety<dsa>::findTypeSafeDSNodes (const DSGraph * Graph) {
+template <class dsa>
+void TypeSafety<dsa>::findTypeSafeDSNodes(const DSGraph *Graph) {
   DSGraph::node_const_iterator N = Graph->node_begin();
   DSGraph::node_const_iterator NE = Graph->node_end();
   for (; N != NE; ++N) {
-    if (isTypeSafe (&*N)) {
-      TypeSafeNodes.insert (&*N);
+    if (isTypeSafe(&*N)) {
+      TypeSafeNodes.insert(&*N);
     }
   }
 }
 
-template<class dsa> bool
-TypeSafety<dsa>::runOnModule(Module & M) {
+template <class dsa> bool TypeSafety<dsa>::runOnModule(Module &M) {
   //
   // Get access to prerequisite passes.
   //
-  TD      = &M.getDataLayout();
+  TD = &M.getDataLayout();
   dsaPass = &getAnalysis<dsa>();
 
   //
   // For every DSGraph, find which DSNodes are type-safe.
   //
-  findTypeSafeDSNodes (dsaPass->getGlobalsGraph());
+  findTypeSafeDSNodes(dsaPass->getGlobalsGraph());
   for (Module::iterator F = M.begin(); F != M.end(); ++F) {
-    if (dsaPass->hasDSGraph (*F)) {
-      findTypeSafeDSNodes (dsaPass->getDSGraph (*F));
+    if (dsaPass->hasDSGraph(*F)) {
+      findTypeSafeDSNodes(dsaPass->getDSGraph(*F));
     }
   }
 
   return false;
 }
-
 }
 
+static void initTypeSafetyEQTDOnce(PassRegistry &Registry) {
+  INITIALIZE_PASS_DEPENDENCY(EQTDDataStructures)
+  const char *Name = "Find type-safe pointers (EQTD)";
+  PassInfo *PI = new PassInfo(Name, "Find type-safe pointers (EQTD)",
+                              &dsa::TypeSafety<EQTDDataStructures>::ID,
+                              PassInfo::NormalCtor_t(callDefaultCtor<dsa::TypeSafety<EQTDDataStructures>>),
+                              true, true);
+  Registry.registerPass(*PI, true);
+}
+
+static void initTypeSafetyTDOnce(PassRegistry &Registry) {
+  INITIALIZE_PASS_DEPENDENCY(TDDataStructures)
+  const char *Name = "Find type-safe pointers (TD)";
+  PassInfo *PI = new PassInfo(Name, "Find type-safe pointers (TD)",
+                              &dsa::TypeSafety<TDDataStructures>::ID,
+                              PassInfo::NormalCtor_t(callDefaultCtor<dsa::TypeSafety<TDDataStructures>>),
+                              true, true);
+  Registry.registerPass(*PI, true);
+}
+
+LLVM_DEFINE_ONCE_FLAG(InitializeTypeSafetyEQTDFlag);
+void llvm::initializeTypeSafetyEQTD(PassRegistry &Registry) {
+  llvm::call_once(InitializeTypeSafetyEQTDFlag, initTypeSafetyEQTDOnce,
+                  std::ref(Registry));
+}
+
+LLVM_DEFINE_ONCE_FLAG(InitializeTypeSafetyTDFlag);
+void llvm::initializeTypeSafetyTD(PassRegistry &Registry) {
+  llvm::call_once(InitializeTypeSafetyTDFlag, initTypeSafetyTDOnce,
+                  std::ref(Registry));
+}

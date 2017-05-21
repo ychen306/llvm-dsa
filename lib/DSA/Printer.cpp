@@ -191,9 +191,9 @@ struct DOTGraphTraits<const DSGraph*> : public DefaultDOTGraphTraits {
   }
 
 
-  /// addCustomGraphFeatures - Use this graph writing hook to emit call nodes
-  /// and the return node.
-  ///
+  // addCustomGraphFeatures - Use this graph writing hook to emit call nodes
+  // and the return node.
+  //
   //static void addCustomGraphFeatures(const DSGraph *G,
   //                                   GraphWriter<const DSGraph*> &GW) {
   //  if (!LimitPrint) {
@@ -281,8 +281,8 @@ struct DOTGraphTraits<const DSGraph*> : public DefaultDOTGraphTraits {
 }   // end namespace llvm
 
 void DSNode::print(llvm::raw_ostream &O, const DSGraph *G) const {
-  GraphWriter<const DSGraph *> W(O, G, false);
-  W.writeNode(this);
+  //GraphWriter<const DSGraph *> W(O, G, false);
+  //W.writeNode(this);
 }
 
 void DSGraph::print(llvm::raw_ostream &O) const {
