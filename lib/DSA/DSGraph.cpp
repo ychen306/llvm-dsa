@@ -1355,7 +1355,6 @@ void DSGraph::computeNodeMapping(const DSNodeHandle &NH1,
   }
 }
 
-
 /// computeGToGGMapping - Compute the mapping of nodes in the global graph to
 /// nodes in this graph.
 void DSGraph::computeGToGGMapping(NodeMapTy &NodeMap) {
@@ -1411,20 +1410,20 @@ void DSGraph::computeGGToGMapping(InvNodeMapTy &InvNodeMap) {
 /// mapping of nodes from the callee to nodes in the caller.
 void DSGraph::computeCalleeCallerMapping(DSCallSite CS, const Function &Callee,
                                          DSGraph &CalleeGraph,
-                                         NodeMapTy &NodeMap) {
+                                         NodeMapTy &NodeMap, bool Strict) {
 
   DSCallSite CalleeArgs =
     CalleeGraph.getCallSiteForArguments(const_cast<Function&>(Callee));
 
-  computeNodeMapping(CalleeArgs.getRetVal(), CS.getRetVal(), NodeMap);
-  computeNodeMapping(CalleeArgs.getVAVal(), CS.getVAVal(), NodeMap);
+  computeNodeMapping(CalleeArgs.getRetVal(), CS.getRetVal(), NodeMap, Strict);
+  computeNodeMapping(CalleeArgs.getVAVal(), CS.getVAVal(), NodeMap, Strict);
 
   unsigned NumArgs = CS.getNumPtrArgs();
   if (NumArgs > CalleeArgs.getNumPtrArgs())
     NumArgs = CalleeArgs.getNumPtrArgs();
 
   for (unsigned i = 0; i != NumArgs; ++i)
-    computeNodeMapping(CalleeArgs.getPtrArg(i), CS.getPtrArg(i), NodeMap);
+    computeNodeMapping(CalleeArgs.getPtrArg(i), CS.getPtrArg(i), NodeMap, Strict);
 
   // Map the nodes that are pointed to by globals.
   DSScalarMap &CalleeSM = CalleeGraph.getScalarMap();
@@ -1434,12 +1433,12 @@ void DSGraph::computeCalleeCallerMapping(DSCallSite CS, const Function &Callee,
     for (DSScalarMap::global_iterator GI = CallerSM.global_begin(),
            E = CallerSM.global_end(); GI != E; ++GI)
       if (CalleeSM.global_count(*GI))
-        computeNodeMapping(CalleeSM[*GI], CallerSM[*GI], NodeMap);
+        computeNodeMapping(CalleeSM[*GI], CallerSM[*GI], NodeMap, Strict);
   } else {
     for (DSScalarMap::global_iterator GI = CalleeSM.global_begin(),
            E = CalleeSM.global_end(); GI != E; ++GI)
       if (CallerSM.global_count(*GI))
-        computeNodeMapping(CalleeSM[*GI], CallerSM[*GI], NodeMap);
+        computeNodeMapping(CalleeSM[*GI], CallerSM[*GI], NodeMap, Strict);
   }
 }
 
@@ -1501,7 +1500,7 @@ llvm::functionIsCallable (ImmutableCallSite CS, const Function* F) {
   //
   if (!noDSACallConv) {
     Function::const_arg_iterator farg = F->arg_begin(), fend = F->arg_end();
-    for (unsigned index = 1; index < (CS.arg_size() + 1) && farg != fend;
+    for (unsigned index = 0; index < CS.arg_size() && farg != fend;
         ++farg, ++index) {
       if (CS.isByValArgument(index) != farg->hasByValAttr()) {
         return false;

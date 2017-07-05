@@ -147,10 +147,7 @@ bool TypeSafety<dsa>::isTypeSafe(const Value *V, const Function *F) {
   //
   // See if the DSNode is one that we think is type-safe.
   //
-  if (TypeSafeNodes.count(DH.getNode()))
-    return true;
-
-  return false;
+  return isTypeSafe(DH.getNode());
 }
 
 template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
@@ -168,10 +165,7 @@ template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const GlobalValue *V) {
   //
   // See if the DSNode is one that we think is type-safe.
   //
-  if (TypeSafeNodes.count(DH.getNode()))
-    return true;
-
-  return false;
+  return isTypeSafe(DH.getNode());
 }
 
 //
@@ -255,7 +249,7 @@ template <class dsa> bool TypeSafety<dsa>::typeFieldsOverlap(const DSNode *N) {
 }
 
 //
-// Method: isTypeSafe()
+// Method: isTypeSafeImpl()
 //
 // Description:
 //  Determine whether a DSNode represents a piece of memory that is accessed
@@ -267,8 +261,7 @@ template <class dsa> bool TypeSafety<dsa>::typeFieldsOverlap(const DSNode *N) {
 // Return value:
 //  true  - The memory object is used in a type-safe fasion.
 //  false - The memory object *may* be used in a type-unsafe fasion.
-//
-template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const DSNode *N) {
+template <class dsa> bool TypeSafety<dsa>::isTypeSafeImpl(const DSNode *N) {
   //
   // If the DSNode is completely folded, then we know for sure that it is not
   // type-safe.
@@ -277,13 +270,6 @@ template <class dsa> bool TypeSafety<dsa>::isTypeSafe(const DSNode *N) {
     return false;
 
   //
-  // If the memory object represented by this DSNode can be manipulated by
-  // external code or DSA has otherwise not finished analyzing all operations
-  // on it, declare it type-unsafe.
-  //
-  if (N->isExternalNode() || N->isIncompleteNode())
-    return false;
-
   //
   // If the pointer to the memory object came from some source not understood
   // by DSA or somehow came from/escapes to the realm of integers, declare it
@@ -325,7 +311,7 @@ void TypeSafety<dsa>::findTypeSafeDSNodes(const DSGraph *Graph) {
   DSGraph::node_const_iterator N = Graph->node_begin();
   DSGraph::node_const_iterator NE = Graph->node_end();
   for (; N != NE; ++N) {
-    if (isTypeSafe(&*N)) {
+    if (isTypeSafeImpl(&*N)) {
       TypeSafeNodes.insert(&*N);
     }
   }
@@ -372,6 +358,16 @@ static void initTypeSafetyTDOnce(PassRegistry &Registry) {
   Registry.registerPass(*PI, true);
 }
 
+static void initTypeSafetyEquivBUOnce(PassRegistry &Registry) {
+  INITIALIZE_PASS_DEPENDENCY(EquivBUDataStructures)
+  const char *Name = "Find type-safe pointers (TD)";
+  PassInfo *PI = new PassInfo(Name, "Find type-safe pointers (TD)",
+                              &dsa::TypeSafety<EquivBUDataStructures>::ID,
+                              PassInfo::NormalCtor_t(callDefaultCtor<dsa::TypeSafety<EquivBUDataStructures>>),
+                              true, true);
+  Registry.registerPass(*PI, true);
+}
+
 LLVM_DEFINE_ONCE_FLAG(InitializeTypeSafetyEQTDFlag);
 void llvm::initializeTypeSafetyEQTD(PassRegistry &Registry) {
   llvm::call_once(InitializeTypeSafetyEQTDFlag, initTypeSafetyEQTDOnce,
@@ -381,5 +377,11 @@ void llvm::initializeTypeSafetyEQTD(PassRegistry &Registry) {
 LLVM_DEFINE_ONCE_FLAG(InitializeTypeSafetyTDFlag);
 void llvm::initializeTypeSafetyTD(PassRegistry &Registry) {
   llvm::call_once(InitializeTypeSafetyTDFlag, initTypeSafetyTDOnce,
+                  std::ref(Registry));
+}
+
+LLVM_DEFINE_ONCE_FLAG(InitializeTypeSafetyEquivBUFlag);
+void llvm::initializeTypeSafetyEquivBU(PassRegistry &Registry) {
+  llvm::call_once(InitializeTypeSafetyEquivBUFlag, initTypeSafetyEquivBUOnce,
                   std::ref(Registry));
 }

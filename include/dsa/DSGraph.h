@@ -562,7 +562,7 @@ public:
   /// graph to the 'Callee' function (which lives in 'CalleeGraph'), compute the
   /// mapping of nodes from the callee to nodes in the caller.
   void computeCalleeCallerMapping(DSCallSite CS, const Function &Callee,
-                                  DSGraph &CalleeGraph, NodeMapTy &NodeMap);
+                                  DSGraph &CalleeGraph, NodeMapTy &NodeMap, bool Strict=true);
 
   /// spliceFrom - Logically perform the operation of cloning the RHS graph into
   /// this graph, then clearing the RHS graph.  Instead of performing this as

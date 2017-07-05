@@ -736,7 +736,7 @@ void GraphBuilder::visitGetElementPtrInst(User &GEP) {
   //
   for (gep_type_iterator I = gep_type_begin(GEP), E = gep_type_end(GEP);
        I != E; ++I)
-    if (StructType *STy = dyn_cast<StructType>(I.getIndexedType())) {
+    if (StructType *STy = I.getStructTypeOrNull()) {
       // indexing into a structure
       // next index must be a constant
       const ConstantInt* CUI = cast<ConstantInt>(I.getOperand());
@@ -860,6 +860,14 @@ void GraphBuilder::visitGetElementPtrInst(User &GEP) {
         // Treat the memory object (DSNode) as an array.
         //
         NodeH.getNode()->setArrayMarker();
+
+        // TOM's hack... remove later
+        if (!CurTy->isSized()) {
+          NodeH.getNode()->foldNodeCompletely();
+          NodeH.getNode();
+          Offset = 0;
+          break;
+        }
 
         //
         // Ensure that the DSNode's size is large enough to contain one

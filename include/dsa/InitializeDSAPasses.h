@@ -52,6 +52,9 @@ void initializeTypeSafetyEQTD(PassRegistry &);
 
 // TypeSafety<TDDataStructures>
 void initializeTypeSafetyTD(PassRegistry &);
+
+// TypeSafety<EquivBUDataStructures>
+void initializeTypeSafetyEquivBU(PassRegistry &);
 }
 
 #endif

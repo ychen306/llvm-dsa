@@ -45,7 +45,7 @@ struct TypeSafety : public ModulePass {
     DSNodeHandle getDSNodeHandle (const Value * V, const Function * F);
     DSNodeHandle getDSNodeHandle (const GlobalValue * V);
     void findTypeSafeDSNodes (const DSGraph * Graph);
-    bool isTypeSafe (const DSNode * N);
+    bool isTypeSafeImpl (const DSNode * N);
     bool typeFieldsOverlap (const DSNode * N);
 
     // Pointers to prerequisite passes
@@ -77,6 +77,12 @@ struct TypeSafety : public ModulePass {
     // Methods for clients to use
     virtual bool isTypeSafe (const Value * V, const Function * F);
     virtual bool isTypeSafe (const GlobalValue * V);
+    bool isTypeSafe (const DSNode * N) {
+      return N->isCompleteNode() && !N->isExternalNode() && isTypeSafeIfInternal(N);
+    }
+    bool isTypeSafeIfInternal(const DSNode *N) {
+      return TypeSafeNodes.find(N) != TypeSafeNodes.end();
+    }
 };
 
 }
