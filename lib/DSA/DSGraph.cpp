@@ -1139,26 +1139,21 @@ void DSGraph::removeDeadNodes(unsigned Flags) {
       }
   } while (Iterate);
 
-  // If only some of the aux calls are alive
-  if (AuxFCallsAlive.size() != AuxFunctionCalls.size()) {
-    // Move dead aux function calls to the end of the list
-    FunctionListTy::iterator Erase = AuxFunctionCalls.end();
-    for (FunctionListTy::iterator CI = AuxFunctionCalls.begin(); CI != Erase; )
-      if (AuxFCallsAlive.count(&*CI))
-        ++CI;
-      else {
-        // Copy and merge global nodes and dead aux call nodes into the
-        // GlobalsGraph, and all nodes reachable from those nodes.  Update their
-        // target pointers using the GGCloner.
-        //
-        if (!(Flags & DSGraph::RemoveUnreachableGlobals))
-          GlobalsGraph->AuxFunctionCalls.push_back(DSCallSite(*CI, GGCloner));
+  // Move dead aux function calls to the end of the list
+  FunctionListTy::iterator Erase = AuxFunctionCalls.end();
+  for (FunctionListTy::iterator CI = AuxFunctionCalls.begin(); CI != Erase; )
+    if (AuxFCallsAlive.count(&*CI))
+      ++CI;
+    else {
+      // Copy and merge global nodes and dead aux call nodes into the
+      // GlobalsGraph, and all nodes reachable from those nodes.  Update their
+      // target pointers using the GGCloner.
+      //
+      if (!(Flags & DSGraph::RemoveUnreachableGlobals))
+        GlobalsGraph->AuxFunctionCalls.push_back(DSCallSite(*CI, GGCloner));
 
-        std::swap(*CI, *--Erase);
-      }
-    AuxFunctionCalls.erase(Erase, AuxFunctionCalls.end());
-  }
-  AuxFCallsAlive.clear();
+      AuxFunctionCalls.erase(CI++);
+    }
 
   // We are finally done with the GGCloner so we can destroy it.
   GGCloner.destroy();
@@ -1313,6 +1308,8 @@ void DSGraph::computeNodeMapping(const DSNodeHandle &NH1,
   //assert(((signed int)(NH2.getOffset()-NH1.getOffset())>=0) && " Underflow error ");
   if(NH2.getOffset() >= NH1.getOffset()) {
     Entry.setTo(N2, NH2.getOffset()-NH1.getOffset());
+  } else {
+    Entry.setTo(N2, NH1.getOffset());
   }
 
   //
@@ -1640,20 +1637,22 @@ void DSGraph::buildCompleteCallGraph(DSCallGraph& DCG,
     //
     for (std::vector<const Function*>::iterator Fi = MaybeTargets.begin(),
          Fe = MaybeTargets.end(); Fi != Fe; ++Fi)
-      if (!filter || functionIsCallable(CS, *Fi))
+      if (!filter || functionIsCallable(CS, *Fi)) {
         DCG.insert(CS, *Fi);
-      else
+      } else {
         ++NumFiltered;
+      }
 
     for (DSCallSite::MappedSites_t::iterator I = ii->ms_begin(),
          E = ii->ms_end(); I != E; ++I) {
       CallSite MCS = *I;
       for (std::vector<const Function*>::iterator Fi = MaybeTargets.begin(),
            Fe = MaybeTargets.end(); Fi != Fe; ++Fi) {
-        if (!filter || functionIsCallable(MCS, *Fi))
+        if (!filter || functionIsCallable(MCS, *Fi)) {
           DCG.insert(MCS, *Fi);
-        else
+        } else {
           ++NumFiltered;
+        }
       }
     }
   }
