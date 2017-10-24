@@ -37,6 +37,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <tuple>
 using namespace llvm;
 
 #define COLLAPSE_ARRAYS_AGGRESSIVELY 0
@@ -1139,12 +1140,40 @@ void DSGraph::removeDeadNodes(unsigned Flags) {
       }
   } while (Iterate);
 
+
+  std::map<std::pair<CallSite, const DSNode *>, std::vector<DSCallSite *>> Seen;
+  const unsigned MaxDupCS = 500;
+
+  auto MarkAlives = [&Alive](DSNode *N) {
+    if (!N)
+      return;
+    N->markReachableNodes(Alive);
+  };
+
   // Move dead aux function calls to the end of the list
   FunctionListTy::iterator Erase = AuxFunctionCalls.end();
   for (FunctionListTy::iterator CI = AuxFunctionCalls.begin(); CI != Erase; )
-    if (AuxFCallsAlive.count(&*CI))
-      ++CI;
-    else {
+    if (AuxFCallsAlive.count(&*CI)) {
+      auto Key = std::make_pair(
+          CI->getCallSite(),
+          CI->isIndirectCall() ? CI->getCalleeNode() : nullptr);
+      auto &Dups = Seen[Key];
+      if (Dups.size() == MaxDupCS) {
+        //AuxFunctionCalls.erase(CI++);
+        //continue;
+
+        auto *Merged = Dups.back();
+        Merged->mergeWith(*CI);
+        MarkAlives(Merged->getRetVal().getNode());
+        MarkAlives(Merged->getVAVal().getNode());
+        for (unsigned i = 0, e = Merged->getNumPtrArgs(); i != e; ++i)
+          MarkAlives(Merged->getPtrArg(i).getNode());
+        AuxFunctionCalls.erase(CI++);
+      } else {
+        Dups.push_back(&*CI);
+        ++CI;
+      }
+    } else {
       // Copy and merge global nodes and dead aux call nodes into the
       // GlobalsGraph, and all nodes reachable from those nodes.  Update their
       // target pointers using the GGCloner.
